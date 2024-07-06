@@ -8,6 +8,9 @@ public static class ServerCapability {
     private static List<Socket> clientHandlers;
     private static IPEndPoint listenerEndpoint = new(IPAddress.Any, 5000);
     private static Socket listener;
+    
+    public delegate void MessageReceived(string message);
+    public static event MessageReceived ClientMessageReceived;
 
     public static void StartServer() {
         clientHandlers = [];
@@ -16,7 +19,7 @@ public static class ServerCapability {
         
         listener.Bind(listenerEndpoint);
         listener.Listen(100);
-
+        
         Task connectionHandler = Task.Run(ManageIncomingConnections);
     }
 
@@ -29,8 +32,6 @@ public static class ServerCapability {
 
         List<Task> messageTasks = new(clientHandlers.Count);
         
-        Console.WriteLine(clientHandlers[0].Connected);
-        Console.WriteLine(clientHandlers[0].IsBound);
         foreach (Socket handler in clientHandlers) {
             messageTasks.Add(handler.SendAsync(payload, SocketFlags.None));
         }
@@ -43,7 +44,18 @@ public static class ServerCapability {
     private static async Task ManageIncomingConnections() {
         while (true) {
             clientHandlers.Add(await listener.AcceptAsync());
+            Task clientListener = Task.Run(async () => { await MessageListener(clientHandlers.LastOrDefault()); });
             Console.WriteLine("Remote client connection accepted");
+        }
+    }
+
+    private static async Task MessageListener(Socket client) {
+        while (true) {
+            byte[] buffer = new byte[1024];
+            int received = await client.ReceiveAsync(buffer, SocketFlags.None);
+            string message = Encoding.UTF8.GetString(buffer, 0, received);
+
+            ClientMessageReceived(message);
         }
     }
 }

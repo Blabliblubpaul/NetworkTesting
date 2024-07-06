@@ -33,4 +33,10 @@ public static class ClientCapability {
             BroadcastReceived(response);
         }
     }
+    
+    public static async Task SendMessageToServer(string message) {
+        byte[] payload = Encoding.UTF8.GetBytes(message);
+        
+        await client.SendAsync(payload, SocketFlags.None);
+    }
 }
